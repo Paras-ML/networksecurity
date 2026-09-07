@@ -12,9 +12,3 @@ class NetworkSecurityException(Exception):
 
     def __str__(self):
         return f"Error occurred in script: [{self.file_name}] at line number: [{self.line_no}] error message: [{self.error_message}]"
-
-    try:
-        logger.logging.info("Starting the network security application...")
-        a = 1/0
-    except Exception as e:
-        raise NetworkSecurityException(e,sys)
