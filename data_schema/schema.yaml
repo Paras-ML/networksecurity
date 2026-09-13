@@ -32,7 +32,7 @@ columns:
   - Result: int64
   
 
-numerical columns:
+numerical_columns:
   - having_IP_Address
   - URL_Length
   - Shortining_Service

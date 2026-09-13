@@ -29,7 +29,8 @@ class DataValidation:
 
     def validate_number_of_columns(self,dataframe:pd.DataFrame)->bool:
         try:
-            number_of_columns = len(self._schema_config)
+            required_columns = self._schema_config.get("columns", [])
+            number_of_columns = len(required_columns)
             logging.info(f"Required number of columns :{number_of_columns}")
             logging.info(f"Dataframe has columns:{len(dataframe.columns)}")
             if len(dataframe.columns) == number_of_columns:
@@ -92,56 +93,115 @@ class DataValidation:
 
 
     def initiate_data_validation(self)->DataValidationArtifact:
+        validation_status = True
         try:
             train_file_path = self.data_ingestion_artifact.trained_file_path
             test_file_path = self.data_ingestion_artifact.test_file_path
 
             ## read the data from train and test
             train_dataframe = DataValidation.read_data(train_file_path)
+            print("Train columns:")
+
+            print(train_dataframe.columns.tolist())
             test_dataframe = DataValidation.read_data(test_file_path)
 
             ## Validate number of columns
             status = self.validate_number_of_columns(dataframe=train_dataframe)
             if not status:
-                error_message = f"Train dataframe does not contain all columns.\n"     
+                validation_status=False
+                error_message = f"Train dataframe does not contain all columns.\n"
+                logging.error("Train dataframe does not contain all required columns.")
+
+   
 
             status = self.validate_number_of_columns(dataframe=test_dataframe)
             if not status:
+                validation_status=False
                 error_message = f"Test dataframe does not contain all columns.\n"     
+                logging.error("Test dataframe does not contain all required columns.")
 
             ## Validate numerical columns
             status = self.validate_numerical_columns(dataframe=train_dataframe)
-
             if not status:
+                validation_status=False
                 error_message = f"Train dataframe does not contain all required numerical columns.\n"
+                logging.error("Train dataframe does not contain all required numerical columns.")  
 
             status = self.validate_numerical_columns(dataframe=test_dataframe)
-
             if not status:
+                validation_status=False
                 error_message = f"Test dataframe does not contain all required numerical columns.\n"
+                logging.error("Test dataframe does not contain all required numerical columns.")
+
 
             ## Lets check Datadrift
             status = self.detect_dataset_drift(base_df=train_dataframe,current_df=test_dataframe)
-            dir_path = os.path.dirname(self.data_validation_config.valid_train_data_file_path)
-            os.makedirs(dir_path,exist_ok=True)
+            if not status:
+                validation_status = False
+                logging.error("Dataset drift detected.")
 
-            train_dataframe.to_csv(
+
+            if validation_status:
+
+                dir_path = os.path.dirname(self.data_validation_config.valid_train_data_file_path)
+                os.makedirs(dir_path,exist_ok=True)
+
+                train_dataframe.to_csv(
                 self.data_validation_config.valid_train_data_file_path,index=False,header=True
-            )
+                )
 
-            test_dataframe.to_csv(
-                            self.data_validation_config.valid_test_data_file_path,index=False,header=True
-                        )
+                test_dataframe.to_csv(
+                self.data_validation_config.valid_test_data_file_path,index=False,header=True
+                )
+
+                valid_train_file_path = (
+                self.data_validation_config.valid_train_data_file_path
+                )
+
+                valid_test_file_path = (
+                self.data_validation_config.valid_test_data_file_path
+                )
+
+                invalid_train_file_path = None
+                invalid_test_file_path = None
+
+            else:
+                # Validation failed
+                dir_path = os.path.dirname(
+                self.data_validation_config.invalid_train_data_file_path
+                )
+                os.makedirs(dir_path, exist_ok=True)
+
+                train_dataframe.to_csv(
+                self.data_validation_config.invalid_train_data_file_path,
+                index=False,
+                header=True
+                )
+
+                test_dataframe.to_csv(
+                self.data_validation_config.invalid_test_data_file_path,
+                index=False,
+                header=True
+                )
+
+                valid_train_file_path = None
+                valid_test_file_path = None
+
+                invalid_train_file_path = (
+                self.data_validation_config.invalid_train_data_file_path
+                )
+
+                invalid_test_file_path = (
+                self.data_validation_config.invalid_test_data_file_path
+                )
 
             data_validation_artifact = DataValidationArtifact(
-                validation_status=status,
-                valid_train_file_path=self.data_ingestion_artifact.trained_file_path,
-                valid_test_file_path=self.data_ingestion_artifact.test_file_path,
-                invalid_test_file_path=None,
-                invalid_train_file_path=None,
-                drift_report_file_path=self.data_validation_config.drift_report_file_path
-
-
+            validation_status=validation_status,
+            valid_train_file_path=valid_train_file_path,
+            valid_test_file_path=valid_test_file_path,
+            invalid_test_file_path=invalid_test_file_path,
+            invalid_train_file_path=invalid_train_file_path,
+            drift_report_file_path=self.data_validation_config.drift_report_file_path
             )
             return data_validation_artifact
             
