@@ -85,7 +85,7 @@ jobs:
           - name: Stop and remove container if running
             run:  |
              docker stop networksecurity || True
-             docker rm networksecurity
+             docker rm networksecurity || True
 
           - name: Run Docker Image to serve users
             run: |
